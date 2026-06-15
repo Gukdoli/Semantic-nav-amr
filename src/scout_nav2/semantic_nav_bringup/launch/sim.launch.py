@@ -93,9 +93,9 @@ def launch_setup(context, *args, **kwargs):
         objects = [
             ("fire_extinguisher", "fire_extinguisher",
              0.6699510216712952, 5.770341396331787, 0.0, -1.498456),
-            # Second instance, 4 m south of the first (tune if it lands in a wall).
+            # Second instance, relocated to a separate open spot.
             ("fire_extinguisher_2", "fire_extinguisher",
-             0.6699510216712952, 1.770341396331787, 0.0, -1.498456),
+             1.244585394859314, -3.0683581829071045, 0.0, -1.498456),
         ]
         object_nodes = [
             Node(
@@ -182,6 +182,16 @@ def launch_setup(context, *args, **kwargs):
                 executable="goal_commander_node",
                 name="goal_commander_node",
                 parameters=[language_goal_params, {"use_sim_time": True}],
+                output="screen",
+            ),
+            # Browser UI for typing natural-language commands (http://localhost:
+            # 8080). A thin front-end that relays to the navigate_to_object
+            # service; the LLM parsing/selection stays in goal_commander.
+            Node(
+                package="language_goal",
+                executable="web_command_node",
+                name="web_command_node",
+                parameters=[{"use_sim_time": True}],
                 output="screen",
             ),
         ]
