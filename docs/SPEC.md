@@ -169,6 +169,9 @@ RGB-D 카메라 → 객체 탐지 노드(YOLO-World) → 3D 위치 추정(depth+
       - FindObject는 **배열 응답**(같은 라벨 다중 인스턴스). 인스턴스 분리 검증 통과
         (소화기 2개 >3m → 별개 항목 2 + 마커 2; sim.launch.py가 2개 스폰).
       - 디버그용 `/semantic_nav/debug_image`(탐지 박스+상태색). 단위 14개 + ROS 스모크 통과.
+      - 탐지 어휘: `target_classes`(저장)와 `detection_prompts`(외형 프롬프트) 분리.
+        **데모는 소화기 단일 클래스로 확정** — 시뮬 과노출 렌더로 다른 객체는 YOLOE 미검출
+        (의자/콘/프리미티브 <0.03, COCO chair 탐지기도 실패). 상세·후속 옵션은 `docs/NOTES.md`.
 - [ ] M4: language_goal 구현 (키워드 파서). "go to fire extinguisher" 명령으로
       실제 주행 성공. ros2 service call로 데모.
 - [ ] M5: 고도화 — LLM 파서 교체, 공간 관계(near/behind/between) 처리,

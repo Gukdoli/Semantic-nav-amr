@@ -81,6 +81,28 @@
   `imgsz` 640 → **1280**, `min_confidence` 0.5 → **0.25**, `inference_rate_hz` 5 → 8.
   사유: 시뮬 렌더는 open-vocab confidence가 낮고 소화기가 작아 small 모델+640+0.5에선 놓침.
   GPU(33ms@1280)라 큰 모델/고해상도 비용이 무의미. **부작용**: 단발 오탐 유입 ↑ → 아래 confirmation으로 상쇄.
+- **프롬프트 엔지니어링(소화기 미검출 + 의자 오탐 해결):** YOLOE는 텍스트 프롬프트 단어에
+  매우 민감. 실측(`/tmp/cam_raw.png` 프레임, conf 무관 점수):
+  소화기 = `"fire extinguisher"` **0.017**(놓침) → `"red fire extinguisher cylinder"` 0.345
+  → **`"red metal cylinder"` 0.855**(시뮬 메시가 그냥 빨간 원통이라 외형 묘사가 의미어보다 잘 맞음).
+  의자 오탐 = `"chair"`는 노란 창고 선반/구조물을 **0.313**으로 오인식하지만 `"office chair"`는
+  **0.015**(시뮬 의자 모델이 `OfficeChairBlack`이라 정확). →
+  **탐지 프롬프트와 저장 라벨 분리**: `detection_prompts`(`["red metal cylinder","office chair"]`)를
+  YOLOE에 먹이고, cls_id를 `target_classes`(`["fire extinguisher","chair"]`)로 되매핑해 저장.
+  `YoloeDetector(prompts=...)`, `_canonical_label`이 처리. **교훈: 시뮬/도메인 객체는 라벨 의미어가
+  아니라 "모델이 보는 외형"으로 프롬프트를 잡아야 한다** — 새 클래스 추가 시 conf 무관 점수부터 찍어볼 것.
+- **M3는 소화기 단일 클래스로 확정(중요 발견):** 여러 후보를 실제 sim 프레임에 실측한 결과
+  소화기(진한 빨강 디테일 메시)만 잘 잡힘 — 점수: 소화기 0.855, 의자(메시) 0.027,
+  파란 공·화분(**프리미티브**) 0.000, 트래픽 콘(텍스처 메시지만 창백 렌더) 0.008.
+  - **프리미티브(평면 단색) 객체는 YOLOE에 사실상 안 보인다(0.00).** 실사 학습 모델이라
+    텍스처/명암이 없는 CG 단색 면을 인식 못 함 → 탐지 대상은 **반드시 텍스처 있는 실제 메시**.
+  - 그래도 시뮬 렌더가 **과노출/저대비**라 색이 날아가, 진한 빨강(소화기) 정도만 도메인 갭을 넘김.
+    COCO yolo11l(chair 학습 클래스)조차 이 의자를 <0.05로 놓침 → 객체 교체로는 해결 안 됨.
+  - 결정: **M3/M4 데모는 소화기 단일 클래스 + 다중 인스턴스(소화기 2개)로 마무리.** 파이프라인
+    (투영·DB·find_object 배열·주행)은 클래스 수와 무관하게 완성이라 데모 충분. 2번째 클래스는
+    M5에서 (a)시뮬 조명/노출 개선 또는 (b)YOLOE 비주얼 프롬프트(예시 크롭, 의자 0.57이지만 오탐) 도입 시 추가.
+  - `target_classes`/`detection_prompts`를 소화기만 남김. 프리미티브 후보 모델(blue_ball/potted_plant)·
+    traffic_cone은 제거. chair 모델 파일은 M2 산물로 보존(스폰/탐지에선 빠짐).
 - **confirmation count(`min_observations`=3) 추가 사유:** conf를 0.25로 낮춰 오탐이 맵에 영구로
   남을 위험(객체 삭제 안 함)을 상쇄. N번 미만 관측은 미확정 → find_object/초록 마커 제외, 회색 반투명
   마커로만 표시(디버깅 `라벨? (count/N)`). 스친 오탐은 count를 못 채우므로 자연 필터.

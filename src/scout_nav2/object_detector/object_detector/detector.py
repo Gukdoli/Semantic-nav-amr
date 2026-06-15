@@ -52,6 +52,7 @@ class YoloeDetector(BaseDetector):
         target_classes: Sequence[str],
         device: str = "",
         imgsz: int = 640,
+        prompts: Sequence[str] = None,
     ):
         try:
             from ultralytics import YOLOE  # noqa: WPS433 (intentional lazy import)
@@ -80,7 +81,14 @@ class YoloeDetector(BaseDetector):
         if weights_dir and SETTINGS.get("weights_dir") != weights_dir:
             SETTINGS.update({"weights_dir": weights_dir})
 
-        self._target_classes = list(target_classes)
+        # Canonical labels stored/queried downstream (e.g. "fire extinguisher").
+        self._labels = list(target_classes)
+        # Detection prompts fed to YOLOE. These may be richer/visual descriptions
+        # that match the sim renders better than the canonical label (e.g. the
+        # sim extinguisher mesh scores far higher on "red metal cylinder" than on
+        # "fire extinguisher"). cls_id indexes this list; we map it back to the
+        # parallel canonical label so the stored label stays clean.
+        self._prompts = list(prompts) if prompts else list(self._labels)
         # model_path may be a local file or a known weight name that ultralytics
         # resolves/downloads (e.g. "yoloe-11s-seg.pt"). Either way this runs once
         # at startup, outside the callback/worker loop.
@@ -92,8 +100,8 @@ class YoloeDetector(BaseDetector):
                 self._model.to(self._device)
             except Exception:  # pragma: no cover - device/runtime dependent
                 pass
-        if self._target_classes and not self._is_engine:
-            self._set_classes(self._target_classes)
+        if self._prompts and not self._is_engine:
+            self._set_classes(self._prompts)
 
     @staticmethod
     def _resolve_device(device: str) -> str:
@@ -134,7 +142,7 @@ class YoloeDetector(BaseDetector):
                 continue
             for box in boxes:
                 cls_id = int(box.cls[0])
-                label = self._class_name(result, cls_id)
+                label = self._canonical_label(result, cls_id)
                 conf = float(box.conf[0])
                 x1, y1, x2, y2 = (float(v) for v in box.xyxy[0])
                 detections.append(
@@ -142,8 +150,11 @@ class YoloeDetector(BaseDetector):
                 )
         return detections
 
-    @staticmethod
-    def _class_name(result, cls_id: int) -> str:
+    def _canonical_label(self, result, cls_id: int) -> str:
+        # Map the matched prompt index back to the canonical label; fall back to
+        # the model's own class names (e.g. for a TensorRT engine).
+        if 0 <= cls_id < len(self._labels):
+            return self._labels[cls_id]
         names = getattr(result, "names", None)
         if isinstance(names, dict):
             return names.get(cls_id, str(cls_id))

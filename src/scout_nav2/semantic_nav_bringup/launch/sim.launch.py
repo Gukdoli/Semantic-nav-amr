@@ -85,16 +85,17 @@ def launch_setup(context, *args, **kwargs):
         # frame here, since odom is ground-truth and map->odom is identity). yaw is
         # radians. entity_name must be unique per spawn; model_dir picks the SDF
         # under models/<model_dir>, so two instances can share one model.
-        # Two fire extinguishers are placed >3 m apart (M3 instance-separation
-        # check): merge_distance is 0.5 m, so they stay distinct in the map.
+        # M3 demo targets the fire extinguisher only: in this sim's washed-out
+        # rendering YOLOE reliably detects the deep-red extinguisher (~0.85 on
+        # "red metal cylinder") but not lower-contrast objects like the chair
+        # (see docs/NOTES.md). Two extinguishers are placed >3 m apart for the
+        # instance-separation demo (merge_distance 0.5 m -> distinct map entries).
         objects = [
             ("fire_extinguisher", "fire_extinguisher",
              0.6699510216712952, 5.770341396331787, 0.0, -1.498456),
             # Second instance, 4 m south of the first (tune if it lands in a wall).
             ("fire_extinguisher_2", "fire_extinguisher",
              0.6699510216712952, 1.770341396331787, 0.0, -1.498456),
-            ("chair", "chair",
-             -3.3449838161468506, -4.413803577423096, 0.0, 0.070288),
         ]
         object_nodes = [
             Node(

@@ -1,10 +1,20 @@
 object_detector_node:
   ros__parameters:
     use_sim_time: true
-    # Open-vocabulary classes set on YOLOE at runtime.
+    # Canonical labels stored in the map and queried via find_object.
+    # M3 demo uses the fire extinguisher only: in this sim's washed-out rendering
+    # YOLOE reliably detects the deep-red extinguisher but not lower-contrast
+    # objects (chair/cone/etc. all scored <0.03; see docs/NOTES.md). Add more
+    # classes here (with a parallel detection_prompts entry) once detection of
+    # the target is verified.
     target_classes:
       - "fire extinguisher"
-      - "chair"
+    # Richer detection prompts (parallel to target_classes) fed to YOLOE. The sim
+    # extinguisher mesh is just a red cylinder, so it scores ~0.85 on "red metal
+    # cylinder" vs ~0.02 on "fire extinguisher". Results are relabelled back to
+    # target_classes. Empty -> use target_classes verbatim as the prompts.
+    detection_prompts:
+      - "red metal cylinder"
     # YOLOE large (YOLO11-based) open-vocabulary weights — better recall on small/
     # distant objects than the 's' variant (cheap on GPU: ~33ms @ imgsz 1280).
     # Machine-local binary under the gitignored workspace models/ dir. On the

@@ -65,9 +65,15 @@ ros2_ws/src/
 - **FindObject는 배열 응답** `DetectedObject3D[] matches` (같은 라벨 다중 인스턴스, confidence 내림차순,
   미확정 제외). 단일 응답 아님 — M4 goal_commander는 matches를 순회/선택해야 함.
 - **탐지기 = YOLOE**(open-vocab). 기본 `models/yoloe-11l-seg.pt`(gitignore), **GPU(torch cu128)
-  ~33ms@imgsz1280, min_confidence 0.25, inference_rate 8Hz**. `target_classes`로 어휘 런타임 설정.
-  실배포(Jetson Orin NX)는 `.engine`(TensorRT FP16, 어휘 export 시 고정) — SPEC 2.2.
-  GPU torch는 cu128(2.11.0) — 설치 함정은 `docs/TROUBLESHOOTING.md` 8장.
+  ~33ms@imgsz1280, min_confidence 0.25, inference_rate 8Hz**. 실배포(Jetson Orin NX)는
+  `.engine`(TensorRT FP16, 어휘 export 시 고정) — SPEC 2.2. GPU torch는 cu128(2.11.0) —
+  설치 함정은 `docs/TROUBLESHOOTING.md` 8장.
+- **탐지 어휘는 `target_classes`(저장 라벨)와 `detection_prompts`(YOLOE에 먹이는 외형 프롬프트)를
+  분리** — 시뮬 객체는 의미어보다 외형 묘사가 잘 맞음(소화기: "fire extinguisher" 0.02 vs
+  "red metal cylinder" 0.85). 결과는 cls_id로 canonical 라벨에 되매핑.
+- **현재 탐지 대상 = 소화기 단일 클래스.** 시뮬 렌더 과노출로 다른 객체(의자/콘/프리미티브)는
+  YOLOE가 거의 못 잡아(<0.03, COCO chair 탐지기도 실패) 소화기만 데모에 사용. 새 클래스 추가 시
+  **conf 무관 점수부터 실측**하고 텍스처 메시여야 함(프리미티브=0.00). 상세 `docs/NOTES.md`.
 - **confirmation**: `min_observations`(기본 3) 미만 관측 객체는 **미확정** → find_object/초록 마커 제외,
   회색 반투명 마커로만 표시. (conf 0.25로 낮춰 늘어난 단발 오탐의 자연 필터.)
 - semantic_map은 **객체를 삭제하지 않는다**(정적 랜드마크 가정). 데이터 어소시에이션: 같은 라벨 &

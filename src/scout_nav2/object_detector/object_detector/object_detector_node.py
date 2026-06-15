@@ -41,6 +41,10 @@ class ObjectDetectorNode(Node):
 
         # --- Parameters (declared + yaml managed; no hardcoding) ---
         self.declare_parameter("target_classes", ["fire extinguisher", "chair"])
+        # Optional richer detection prompts, parallel to target_classes. Fed to
+        # YOLOE for detection while results are stored under target_classes (the
+        # canonical label). Empty -> use target_classes as the prompts.
+        self.declare_parameter("detection_prompts", [""])
         self.declare_parameter("model_path", "yoloe-11s-seg.pt")
         self.declare_parameter("min_confidence", 0.5)
         self.declare_parameter("slop", 0.1)
@@ -57,6 +61,16 @@ class ObjectDetectorNode(Node):
 
         self.target_classes = list(
             self.get_parameter("target_classes").get_parameter_value().string_array_value
+        )
+        prompts = list(
+            self.get_parameter("detection_prompts")
+            .get_parameter_value()
+            .string_array_value
+        )
+        # Treat empty / placeholder-only lists as "no override".
+        prompts = [p for p in prompts if p]
+        self.detection_prompts = (
+            prompts if len(prompts) == len(self.target_classes) else None
         )
         self.model_path = self.get_parameter("model_path").value
         self.min_confidence = float(self.get_parameter("min_confidence").value)
@@ -128,11 +142,16 @@ class ObjectDetectorNode(Node):
             return True
         try:
             self._detector = YoloeDetector(
-                self.model_path, self.target_classes, self.device, self.imgsz
+                self.model_path,
+                self.target_classes,
+                self.device,
+                self.imgsz,
+                prompts=self.detection_prompts,
             )
             self.get_logger().info(
                 f"YOLOE detector loaded (device={self._detector.device}, "
-                f"imgsz={self.imgsz})."
+                f"imgsz={self.imgsz}, classes={self.target_classes}, "
+                f"prompts={self.detection_prompts or self.target_classes})."
             )
             return True
         except ImportError as exc:
