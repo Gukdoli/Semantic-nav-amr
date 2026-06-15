@@ -11,6 +11,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/DetectedObject3D.msg"
   "msg/DetectedObject3DArray.msg"
   "srv/FindObject.srv"
+  "srv/NavigateToObject.srv"
   DEPENDENCIES std_msgs geometry_msgs builtin_interfaces
 )
 

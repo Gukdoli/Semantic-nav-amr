@@ -1,0 +1,4 @@
+string command            # 원문 자연어 명령 (e.g. "go to fire extinguisher")
+---
+bool accepted             # Nav2가 목표(goal)를 수락했는가 (비동기: 도착 여부 아님)
+string message            # 선택된 인스턴스/거리, 또는 실패 사유
