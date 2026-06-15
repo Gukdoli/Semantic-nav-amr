@@ -1,12 +1,19 @@
-"""Pure-function natural-language command parsing (M4: keyword matching).
+"""Pure-function natural-language command parsing.
 
 Deliberately free of ROS imports so the parser can be unit tested standalone
 (see test/test_command_parser.py). The node layer (goal_commander_node.py)
 feeds `parse` with a label->synonyms mapping and dispatches on the result.
 
-M4 is keyword matching only (single demo class, the fire extinguisher). The
-`relation` field is parsed-but-unused scaffolding for M5 (spatial relations
-near/behind/between) and the planned LLM parser.
+`parse` here is the keyword matcher: it is both the M4 baseline and the M5
+fallback when the LLM parser (llm_parser.py) is disabled or fails. The LLM
+parser produces the same ParsedCommand, so the node treats both uniformly.
+
+ParsedCommand fields:
+  - target_label: canonical label to navigate to (set by both parsers).
+  - selector: which instance to pick when several share the label
+    ("nearest"/"farthest"); set by the LLM parser, None for keyword matching.
+  - relation: spatial relation (near/behind/between) -- captured in the LLM
+    schema but unused (Future Work); always None from the keyword parser.
 """
 
 from __future__ import annotations
@@ -26,7 +33,8 @@ DEFAULT_LABEL_SYNONYMS: Dict[str, List[str]] = {
 @dataclass
 class ParsedCommand:
     target_label: str
-    relation: Optional[str] = None  # M5: near/behind/between; unused in M4.
+    relation: Optional[str] = None  # near/behind/between; unused (Future Work).
+    selector: Optional[str] = None  # "nearest"/"farthest" instance selection.
 
 
 def _normalize(text: str) -> str:

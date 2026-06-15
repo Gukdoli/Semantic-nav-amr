@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from language_goal.approach import compute_approach_pose, nearest
+from language_goal.approach import compute_approach_pose, farthest, nearest
 
 
 def test_approach_point_is_offset_toward_robot():
@@ -50,3 +50,15 @@ def test_nearest_picks_closest_index_and_distance():
 def test_nearest_empty_raises():
     with pytest.raises(ValueError):
         nearest([], (0.0, 0.0))
+
+
+def test_farthest_picks_furthest_index_and_distance():
+    pts = [(10.0, 0.0), (1.0, 0.0), (5.0, 0.0)]
+    idx, dist = farthest(pts, (0.0, 0.0))
+    assert idx == 0
+    assert dist == pytest.approx(10.0)
+
+
+def test_farthest_empty_raises():
+    with pytest.raises(ValueError):
+        farthest([], (0.0, 0.0))

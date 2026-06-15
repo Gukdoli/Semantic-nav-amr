@@ -10,7 +10,9 @@ setup(
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
         ("share/" + package_name, ["package.xml"]),
     ],
-    install_requires=["setuptools"],
+    # google-genai powers the optional LLM command parser (M5); the node falls
+    # back to keyword matching when it / the API key is absent.
+    install_requires=["setuptools", "google-genai"],
     zip_safe=True,
     maintainer="user",
     maintainer_email="tjddnwkdiy@gmail.com",
@@ -20,6 +22,7 @@ setup(
     entry_points={
         "console_scripts": [
             "goal_commander_node = language_goal.goal_commander_node:main",
+            "web_command_node = language_goal.web_command_node:main",
         ],
     },
 )

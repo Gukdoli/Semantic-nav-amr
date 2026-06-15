@@ -9,6 +9,20 @@ goal_commander_node:
     tf_timeout: 0.5
     nav_server_wait_sec: 5.0
     find_object_wait_sec: 5.0
-    # Flat list (M4: single demo class). Per-label synonyms live in the node's
-    # DEFAULT_LABEL_SYNONYMS; a proper synonym param structure is M5.
+    # Flat list (single demo class). Per-label synonyms live in the node's
+    # DEFAULT_LABEL_SYNONYMS; a proper synonym param structure is future work.
     target_labels: ["fire extinguisher"]
+    # LLM parser (M5): free text -> {target_label, selector} via Gemini JSON
+    # output, with automatic fallback to the keyword parser on any failure. The
+    # API key is read ONLY from the GEMINI_API_KEY env var (never put it here);
+    # get a free key at https://aistudio.google.com/apikey .
+    # Set llm_enabled: false to force the offline keyword parser.
+    llm_enabled: true
+    # gemini-2.5-flash-lite: this API key's free-tier quota varies per model
+    # (2.5-flash is only ~20 req/day; 2.0-flash was 0). flash-lite has working
+    # free quota and a higher daily limit. It is a 2.5 model, so thinking is
+    # disabled via thinking_config in llm_parser. Swap here if quota changes.
+    llm_model: "gemini-2.5-flash-lite"
+    # Request deadline (s). Gemini requires >= 10s (shorter -> 400); clamped up
+    # in code, but keep it >= 10 here too.
+    llm_timeout_s: 15.0

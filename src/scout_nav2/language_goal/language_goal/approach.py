@@ -63,3 +63,20 @@ def nearest(
     dists: List[float] = [math.hypot(float(px) - rx, float(py) - ry) for px, py in points]
     best_idx = min(range(len(dists)), key=lambda i: dists[i])
     return best_idx, dists[best_idx]
+
+
+def farthest(
+    points: Sequence[Tuple[float, float]],
+    robot_xy: Tuple[float, float],
+) -> Tuple[int, float]:
+    """Index of the point farthest from `robot_xy` and its distance (same frame).
+
+    Mirror of `nearest`, used when the command's selector asks for the
+    "farthest" instance. Raises ValueError on an empty sequence.
+    """
+    if not points:
+        raise ValueError("farthest() requires at least one point")
+    rx, ry = float(robot_xy[0]), float(robot_xy[1])
+    dists: List[float] = [math.hypot(float(px) - rx, float(py) - ry) for px, py in points]
+    best_idx = max(range(len(dists)), key=lambda i: dists[i])
+    return best_idx, dists[best_idx]

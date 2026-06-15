@@ -1,10 +1,10 @@
-"""goal_commander_node: natural-language command -> Nav2 navigation goal (M4).
+"""goal_commander_node: natural-language command -> Nav2 navigation goal.
 
 Pipeline (SPEC 2.4):
   NavigateToObject service request (free-text command)
-    -> command_parser.parse (keyword match)            -> target label
-    -> /semantic_nav/find_object (FindObject)           -> confirmed matches (map)
-    -> pick nearest to the robot (tf2 map<-robot pose)
+    -> parse: LLM parser (M5) with keyword fallback      -> target + selector
+    -> /semantic_nav/find_object (FindObject)            -> confirmed matches (map)
+    -> pick instance: nearest (default) or farthest (selector), tf2 map<-robot
     -> approach.compute_approach_pose (offset + facing)
     -> NavigateToPose action (send goal, await accept/reject)
     -> respond accepted = "Nav2 accepted the goal" (ASYNC: not arrival)
@@ -42,8 +42,9 @@ from nav2_msgs.action import NavigateToPose
 
 from semantic_nav_msgs.srv import FindObject, NavigateToObject
 
-from language_goal.approach import compute_approach_pose, nearest
+from language_goal.approach import compute_approach_pose, farthest, nearest
 from language_goal.command_parser import DEFAULT_LABEL_SYNONYMS, parse
+from language_goal.llm_parser import parse_with_llm
 
 
 class GoalCommanderNode(Node):
@@ -58,10 +59,18 @@ class GoalCommanderNode(Node):
         self.declare_parameter("tf_timeout", 0.5)
         self.declare_parameter("nav_server_wait_sec", 5.0)
         self.declare_parameter("find_object_wait_sec", 5.0)
-        # Flat list of labels this command pipeline understands (M4: single
+        # Flat list of labels this command pipeline understands (single demo
         # class). Per-label synonyms come from DEFAULT_LABEL_SYNONYMS; a proper
-        # per-label synonym param structure is M5.
+        # per-label synonym param structure is future work.
         self.declare_parameter("target_labels", ["fire extinguisher"])
+        # LLM parser (M5): when enabled, parse free text with Gemini and fall
+        # back to the keyword parser on any failure. The API key is read only
+        # from GEMINI_API_KEY (never a param).
+        self.declare_parameter("llm_enabled", True)
+        self.declare_parameter("llm_model", "gemini-2.5-flash-lite")
+        # Gemini requires a request deadline of at least 10s; values below are
+        # clamped up in llm_parser._default_client to avoid a 400.
+        self.declare_parameter("llm_timeout_s", 15.0)
 
         self.approach_distance = float(self.get_parameter("approach_distance").value)
         self.robot_base_frame = self.get_parameter("robot_base_frame").value
@@ -74,6 +83,9 @@ class GoalCommanderNode(Node):
             self.get_parameter("find_object_wait_sec").value
         )
         target_labels = list(self.get_parameter("target_labels").value)
+        self.llm_enabled = bool(self.get_parameter("llm_enabled").value)
+        self.llm_model = self.get_parameter("llm_model").value
+        self.llm_timeout_s = float(self.get_parameter("llm_timeout_s").value)
 
         # Restrict the synonym map to the configured labels (default-injected).
         self.label_synonyms = {
@@ -148,9 +160,28 @@ class GoalCommanderNode(Node):
         return pose
 
     # ----------------------------------------------------------------- callback
+    def _parse_command(self, command):
+        """LLM parse if enabled, else/on failure the keyword parser."""
+        if self.llm_enabled:
+            parsed = parse_with_llm(
+                command,
+                list(self.label_synonyms),
+                model=self.llm_model,
+                timeout_s=self.llm_timeout_s,
+                logger=lambda m: self.get_logger().warn(f"LLM fallback: {m}"),
+            )
+            if parsed is not None:
+                self.get_logger().info(
+                    f"LLM parsed: label='{parsed.target_label}' "
+                    f"selector={parsed.selector}"
+                )
+                return parsed
+            self.get_logger().info("LLM parse unavailable/failed; using keyword parser.")
+        return parse(command, self.label_synonyms)
+
     def _on_navigate(self, request, response):
-        # 1. Parse the command.
-        parsed = parse(request.command, self.label_synonyms)
+        # 1. Parse the command (LLM with keyword fallback).
+        parsed = self._parse_command(request.command)
         if parsed is None:
             response.accepted = False
             response.message = (
@@ -192,13 +223,20 @@ class GoalCommanderNode(Node):
             response.message = "로봇 위치(TF) 조회에 실패했습니다."
             return response
 
-        # 4. Pick nearest instance.
+        # 4. Pick the instance: nearest by default, farthest if the command's
+        #    selector (from the LLM parser) asks for it.
         points = [(m.position.x, m.position.y) for m in matches]
-        idx, dist = nearest(points, robot_xy)
+        if parsed.selector == "farthest":
+            idx, dist = farthest(points, robot_xy)
+            pick_word = "먼"
+        else:
+            idx, dist = nearest(points, robot_xy)
+            pick_word = "가까운"
         chosen = matches[idx]
         if len(matches) > 1:
             select_msg = (
-                f"'{label}' {len(matches)}개 발견, 가까운 것으로 이동 (거리 {dist:.1f}m)."
+                f"'{label}' {len(matches)}개 발견, {pick_word} 것으로 이동 "
+                f"(거리 {dist:.1f}m)."
             )
         else:
             select_msg = f"'{label}' 1개로 이동 (거리 {dist:.1f}m)."

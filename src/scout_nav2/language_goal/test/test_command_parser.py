@@ -56,3 +56,11 @@ def test_longer_synonym_wins_when_multiple_match():
     parsed = parse("go to the fire extinguisher", syn)
     assert parsed is not None
     assert parsed.target_label == "fire extinguisher"
+
+
+def test_keyword_parser_leaves_selector_and_relation_unset():
+    # The keyword parser never sets selector/relation (LLM-only fields).
+    parsed = parse("go to the fire extinguisher", SYN)
+    assert parsed is not None
+    assert parsed.selector is None
+    assert parsed.relation is None
