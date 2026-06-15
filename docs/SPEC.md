@@ -123,12 +123,17 @@ RGB-D 카메라 → 객체 탐지 노드(YOLO-World) → 3D 위치 추정(depth+
 - 노드: `goal_commander_node`
 - 서비스 제공: `/semantic_nav/navigate_to_object` (NavigateToObject)
 - 처리 흐름:
-  1. 명령 파싱 → {target_label, relation}. 1차는 키워드 매칭, 마일스톤 4에서 LLM 파서로 교체
-  2. find_object 서비스로 객체 위치 조회
+  1. 명령 파싱 → {target_label, relation}. 1차는 키워드 매칭, **LLM 파서는 M5**.
+  2. find_object 서비스로 객체 위치 조회(확정 인스턴스 배열). 0개면 `accepted=false`.
+     2개↑면 **로봇 현재 위치 기준 최근접 선택**(message에 개수·거리 명시).
   3. 목표 포즈 계산: 객체에서 로봇 방향으로 `approach_distance` (기본 0.7m) 떨어진 점,
-     방향(yaw)은 객체를 바라보도록 설정
-  4. 글로벌 코스트맵 조회해서 목표 지점 점유 여부 확인, 점유 시 객체 주변 8방향 후보 탐색
-  5. Nav2 NavigateToPose 액션 호출, 결과를 서비스 응답으로 반환
+     방향(yaw)은 객체를 바라보도록 설정.
+  4. **(M4) 코스트맵 점유 검증은 Nav2에 위임** — 계산한 접근 포즈를 그대로 NavigateToPose로
+     보내고, Nav2가 goal을 거부하면 그 결과를 `accepted=false` + 사유로 반환.
+     (글로벌 코스트맵 조회 후 점유 시 객체 주변 8방향 후보 탐색은 **M5**로 이월.)
+  5. Nav2 NavigateToPose 액션 호출. **응답은 비동기** — `accepted`는 "Nav2가 goal을 수락함"을
+     의미하고(도착 여부 아님), `message`에 선택 인스턴스/거리를 담는다. 도착·정지는 RViz로
+     관측(상태 토픽은 범위 밖, 필요 시 향후).
 
 ### 2.5 semantic_nav_bringup
 
@@ -172,10 +177,19 @@ RGB-D 카메라 → 객체 탐지 노드(YOLO-World) → 3D 위치 추정(depth+
       - 탐지 어휘: `target_classes`(저장)와 `detection_prompts`(외형 프롬프트) 분리.
         **데모는 소화기 단일 클래스로 확정** — 시뮬 과노출 렌더로 다른 객체는 YOLOE 미검출
         (의자/콘/프리미티브 <0.03, COCO chair 탐지기도 실패). 상세·후속 옵션은 `docs/NOTES.md`.
-- [ ] M4: language_goal 구현 (키워드 파서). "go to fire extinguisher" 명령으로
-      실제 주행 성공. ros2 service call로 데모.
+- [x] M4: language_goal 구현 (키워드 파서). "go to fire extinguisher" 명령으로
+      실제 주행 성공. ros2 service call로 데모. **sim E2E 검증 완료**(서비스 호출 시
+      `accepted: true` + 로봇이 소화기 앞까지 주행). 완료 사항:
+      - `semantic_nav_msgs/srv/NavigateToObject.srv` 추가. 신규 패키지 `language_goal`
+        (`goal_commander_node` + 순수 모듈 `command_parser.py`/`approach.py` + 단위 14개).
+      - 명령 파서: 키워드/동의어 매칭(`fire extinguisher`/`extinguisher`/`소화기`).
+      - 다중 인스턴스: find_object 배열에서 **로봇 최근접 선택**, message에 개수·거리.
+      - 접근 포즈: 객체→로봇 방향 0.7m + 객체 바라보는 yaw. 코스트맵 검증은 **Nav2 위임**
+        (거부 시 accepted=false). **응답 비동기**(accepted=goal 수락, 도착 아님).
+      - `sim.launch.py` perception 블록에 노드 추가, `params/language_goal.yaml`.
 - [ ] M5: 고도화 — LLM 파서 교체, 공간 관계(near/behind/between) 처리,
-      DB 영속화(JSON), 데모 GIF 촬영 + README 정리.
+      **목표 점유 시 글로벌 코스트맵 조회 + 객체 주변 8방향 후보 탐색**(M4에서 Nav2 위임만으로
+      부족한 경우 관측 후 구현), DB 영속화(JSON), 데모 GIF 촬영 + README 정리.
       카메라-LiDAR 융합(`/points` 3D LiDAR 활용)으로 객체 거리 정확도 개선 (확장 아이템).
 
 ## 4. 완료 기준 (M4 시점)

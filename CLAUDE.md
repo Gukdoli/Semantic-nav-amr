@@ -79,6 +79,25 @@ ros2_ws/src/
 - semantic_map은 **객체를 삭제하지 않는다**(정적 랜드마크 가정). 데이터 어소시에이션: 같은 라벨 &
   거리<`merge_distance`(0.5m)면 EMA 병합, 아니면 신규. 움직이는 객체 추종/추적(tracking)은 M4/M5 보류.
 
+## 명령·내비게이션 (M4 완료 — sim E2E 주행 검증됨)
+
+- 패키지 `language_goal`, 노드 `goal_commander_node`. 서비스
+  **`/semantic_nav/navigate_to_object`**(NavigateToObject: `string command` → `bool accepted`,
+  `string message`).
+- **응답은 비동기**: `accepted=true`는 "**Nav2가 goal을 수락함**"이지 도착이 아니다. `message`에
+  선택 인스턴스 개수·거리/실패 사유. 도착·정지는 RViz로 관측(상태 토픽 없음 — 범위 밖).
+- 흐름: 키워드 파서(`command_parser.py`, 동의어 `fire extinguisher`/`extinguisher`/`소화기`) →
+  `find_object`(확정 배열) → **로봇 최근접 인스턴스 선택** → 접근 포즈(객체→로봇 0.7m,
+  객체 바라보는 yaw, `approach.py`) → NavigateToPose. 0개면 accepted=false.
+- **코스트맵 점유 검증은 Nav2에 위임** — 오프셋 포즈를 그대로 보내고 Nav2 거부 시 accepted=false.
+  8방향 후보 탐색은 M5.
+- 순수 로직(`command_parser`/`approach`)은 ROS 없이 분리 → `test/`로 단위 검증(기존 패턴).
+- 노드는 **`MultiThreadedExecutor` + `ReentrantCallbackGroup`** 필수: navigate 콜백 안에서
+  find_object 호출 + Nav2 accept 대기 2중 블로킹이라 단일 스레드면 데드락.
+- 로봇 pose는 `lookup_transform(map, mobile_robot_base_link, latest)`로 취득(본체 프레임 규칙).
+- 동의어 매핑은 노드 `DEFAULT_LABEL_SYNONYMS` 기본값(param은 평면 `target_labels`만). 다중 클래스
+  동의어 param 구조는 M5.
+
 ## 규칙
 
 - 모든 노드는 파라미터를 declare_parameter로 선언하고 yaml로 관리한다. 하드코딩 금지.
