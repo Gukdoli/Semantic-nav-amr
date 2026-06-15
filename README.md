@@ -153,19 +153,6 @@ nearest/farthest selector. See `docs/NOTES.md`.
   motion-based tracking (e.g. a Kalman filter) to tie A→B as one moving object,
   ideally separating static vs dynamic objects.
 
-## Milestones
-
-- [x] **M1** — Scout v2 + Nav2 bring-up; RViz 2D-goal driving.
-- [x] **M2** — RGB-D (D435i) integration in gz sim; color/depth/`camera_info` topics.
-- [x] **M3** — `object_detector` + `semantic_map`; map-frame object markers in RViz.
-- [x] **M4** — `language_goal` keyword commander; end-to-end driving to the object.
-- [ ] **M5** — LLM parser + instance selector, JSON persistence, demo/README
-  (this milestone); spatial relations and 8-direction search documented as
-  Future Work.
-
-See `docs/SPEC.md` for the full design and `docs/NOTES.md` /
-`docs/TROUBLESHOOTING.md` for implementation and environment notes.
-
 ## Demo
 
 The GIF above is recorded from a `./run_sim.sh` session: drive to confirm the
