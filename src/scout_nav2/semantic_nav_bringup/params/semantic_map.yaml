@@ -7,9 +7,14 @@ semantic_map_node:
     ema_alpha: 0.3
     frame_id: "map"
     # Min observations before an object is confirmed (returned by find_object +
-    # shown solid green). Filters one-off false positives that come with the low
-    # detector min_confidence (0.25). Unconfirmed objects show as faint grey.
-    min_observations: 3
+    # shown solid green). Filters transient/borderline false positives; raised to
+    # 5 (with detector min_confidence 0.45) to keep look-alikes out of the demo.
+    # Unconfirmed objects show as faint grey.
+    min_observations: 5
     marker_publish_rate: 2.0
     marker_scale: 0.3
     text_height: 0.4
+    # JSON persistence (M5): map is loaded at startup and saved on shutdown +
+    # every persistence_save_period seconds. Empty path disables persistence.
+    persistence_path: "/tmp/semantic_map.json"
+    persistence_save_period: 30.0

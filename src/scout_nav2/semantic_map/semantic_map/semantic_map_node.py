@@ -41,6 +41,11 @@ class SemanticMapNode(Node):
         # by find_object + shown solid). Acts as a noise filter for the low
         # min_confidence used to boost recall.
         self.declare_parameter("min_observations", 3)
+        # JSON persistence (M5): empty path disables it. When set, the store is
+        # loaded at startup, saved on shutdown, and (if period > 0) saved
+        # periodically so a crash doesn't lose the map.
+        self.declare_parameter("persistence_path", "")
+        self.declare_parameter("persistence_save_period", 30.0)
 
         self.frame_id = self.get_parameter("frame_id").value
         self.marker_scale = float(self.get_parameter("marker_scale").value)
@@ -52,6 +57,19 @@ class SemanticMapNode(Node):
             merge_distance=float(self.get_parameter("merge_distance").value),
             ema_alpha=float(self.get_parameter("ema_alpha").value),
         )
+
+        self.persistence_path = self.get_parameter("persistence_path").value
+        if self.persistence_path:
+            try:
+                loaded = self.store.load(self.persistence_path)
+                self.get_logger().info(
+                    f"loaded {loaded} objects from {self.persistence_path}"
+                )
+            except (OSError, ValueError, KeyError) as exc:
+                self.get_logger().warn(f"could not load semantic map: {exc}")
+            period = float(self.get_parameter("persistence_save_period").value)
+            if period > 0:
+                self.create_timer(period, self._save_store)
 
         self.create_subscription(
             DetectedObject3DArray,
@@ -143,6 +161,16 @@ class SemanticMapNode(Node):
             m.text = f"{obj.label}? ({obj.count}/{self.min_observations})"
         return m
 
+    def _save_store(self):
+        """Persist the store to disk if persistence is configured."""
+        if not self.persistence_path:
+            return
+        try:
+            n = self.store.save(self.persistence_path)
+            self.get_logger().debug(f"saved {n} objects to {self.persistence_path}")
+        except OSError as exc:
+            self.get_logger().warn(f"could not save semantic map: {exc}")
+
     @staticmethod
     def _to_time_msg(seconds: float) -> TimeMsg:
         t = TimeMsg()
@@ -159,6 +187,7 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
+        node._save_store()  # flush the map on shutdown
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()

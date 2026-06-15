@@ -66,6 +66,30 @@ def test_find_min_count_filters_unconfirmed():
     assert confirmed[0].count == 3
 
 
+def test_save_load_roundtrip(tmp_path):
+    path = str(tmp_path / "map.json")
+    store = ObjectStore(merge_distance=0.5)
+    for t in range(3):
+        store.update("fire extinguisher", (0.67, 5.77, 0.0), 0.8, float(t))
+    store.update("fire extinguisher", (0.67, 1.77, 0.0), 0.7, 9.0)  # separate
+    assert store.save(path) == 2
+
+    restored = ObjectStore(merge_distance=0.5)
+    assert restored.load(path) == 2
+    matches = restored.find("fire extinguisher", min_count=1)
+    assert len(matches) == 2
+    confirmed = restored.find("fire extinguisher", min_count=3)
+    assert len(confirmed) == 1  # count survives the round-trip
+    assert confirmed[0].x == pytest.approx(0.67)
+    assert confirmed[0].y == pytest.approx(5.77)
+
+
+def test_load_missing_file_returns_zero(tmp_path):
+    store = ObjectStore()
+    assert store.load(str(tmp_path / "nope.json")) == 0
+    assert store.all() == []
+
+
 def test_two_far_same_label_both_confirmable():
     """Instance separation: two fire extinguishers >3m apart stay distinct."""
     store = ObjectStore(merge_distance=0.5)

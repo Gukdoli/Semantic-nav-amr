@@ -4,13 +4,17 @@ Pure logic, free of ROS imports, so the association/merge behaviour can be unit
 tested standalone (see test/test_object_store.py). The node layer
 (semantic_map_node.py) wraps this with subscriptions, a service and markers.
 
-JSON persistence is intentionally out of scope for M3 (deferred to M4, SPEC 2.3).
+JSON persistence (M5, SPEC 2.3): `save`/`load` round-trip the store to disk so
+the map survives a restart. Objects are treated as static landmarks (never
+deleted), so loading simply re-inserts everything with fresh marker ids.
 """
 
 from __future__ import annotations
 
+import json
 import math
-from dataclasses import dataclass
+import os
+from dataclasses import asdict, dataclass
 from typing import Dict, List, Optional
 
 
@@ -105,3 +109,45 @@ class ObjectStore:
     def items(self):
         """(id, StoredObject) pairs; ids are stable marker ids."""
         return list(self._objects.items())
+
+    def save(self, path: str) -> int:
+        """Write all objects to `path` as JSON (atomic). Returns the count.
+
+        Writes to a temp file then renames so a crash mid-write can't leave a
+        truncated map. Creates parent directories as needed.
+        """
+        parent = os.path.dirname(path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        objs = [asdict(o) for o in self._objects.values()]
+        tmp = path + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump({"objects": objs}, f, indent=2)
+        os.replace(tmp, path)
+        return len(objs)
+
+    def load(self, path: str) -> int:
+        """Load objects from a JSON file written by `save`. Returns the count.
+
+        Missing file -> 0 (first run). Loaded objects are appended with fresh
+        ids, so loading into a non-empty store merges by the usual rules is NOT
+        done here -- it is a straight restore meant for an empty store at start.
+        """
+        if not os.path.exists(path):
+            return 0
+        with open(path) as f:
+            data = json.load(f)
+        count = 0
+        for d in data.get("objects", []):
+            self._objects[self._next_id] = StoredObject(
+                label=str(d["label"]),
+                x=float(d["x"]),
+                y=float(d["y"]),
+                z=float(d["z"]),
+                confidence=float(d["confidence"]),
+                last_seen=float(d["last_seen"]),
+                count=int(d.get("count", 1)),
+            )
+            self._next_id += 1
+            count += 1
+        return count
