@@ -1,0 +1,77 @@
+<?xml version="1.0"?>
+<!--
+  camera.xacro — RGB-D camera module for Scout v2 (gz sim / Fortress).
+
+  Uses the official Intel RealSense D435i description (realsense2_description) for the
+  body mesh + the real camera's frame tree, so simulation TF/frames match the physical
+  D435i and perception code ports straight to hardware. The realsense package provides
+  ONLY visual + frames (no Gazebo sensor); the gz `rgbd_camera` sensor below is the
+  sim-only image source. On real hardware the realsense2_camera node provides the images.
+
+  Included from robot.urdf.xacro with a single <xacro:include> + macro call; the robot's
+  own URDF/gazebo files are NOT modified (see CLAUDE.md rule).
+
+  Frame tree (name=camera, use_nominal_extrinsics=true):
+    front_mount -> camera_bottom_screw_frame -> camera_link
+      -> camera_depth_frame  -> camera_depth_optical_frame
+      -> camera_color_frame  -> camera_color_optical_frame   (REP-103/105 optical: z fwd)
+      -> camera_infra1/2_*, camera_accel_*, camera_gyro_*
+  camera_link is +X-forward, so the gz sensor (images along +X) faces out of the lens.
+  Images are stamped with camera_color_optical_frame via <ignition_frame_id> (rgbd_camera
+  renders color+depth from one aligned virtual camera = the align_depth convention).
+
+  gz topic base is /scout/camera; gz auto-creates /scout/camera/{image,depth_image,
+  camera_info,points}, bridged to /camera/... in ros2_gz_bridge_config.yaml.
+-->
+<robot xmlns:xacro="http://ros.org/wiki/xacro" name="scout_v2">
+
+  <xacro:include filename="$(find realsense2_description)/urdf/_d435i.urdf.xacro" />
+
+  <xacro:macro name="camera"
+    params="parent x:=0.0 y:=0.0 z:=0.0 roll:=0 pitch:=0 yaw:=0
+            width:=640 height:=480 hfov:=1.211 near:=0.05 far:=8.0 update_rate:=15">
+
+    <!-- D435i body mesh + full frame tree (nominal extrinsics for sim/hardware parity) -->
+    <xacro:sensor_d435i parent="${parent}" name="camera" use_nominal_extrinsics="true">
+      <origin xyz="${x} ${y} ${z}" rpy="${roll} ${pitch} ${yaw}" />
+    </xacro:sensor_d435i>
+
+    <!-- gz sim RGB-D sensor (rendered by ignition-gazebo-sensors-system, already loaded).
+         Attached to camera_link (real link, +X forward); stamped with the color optical frame. -->
+    <gazebo reference="camera_link">
+      <sensor name="rgbd_camera" type="rgbd_camera">
+        <topic>/scout/camera</topic>
+        <update_rate>${update_rate}</update_rate>
+        <ignition_frame_id>camera_color_optical_frame</ignition_frame_id>
+        <camera>
+          <horizontal_fov>${hfov}</horizontal_fov>
+          <image>
+            <width>${width}</width>
+            <height>${height}</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>${near}</near>
+            <far>${far}</far>
+          </clip>
+          <!-- Explicit intrinsics: gz Fortress otherwise publishes default 320x240/60-deg
+               camera_info K that does NOT match the rendered image (principal point at 1/4).
+               fx = (width/2)/tan(hfov/2); cx,cy = image centre. -->
+          <lens>
+            <intrinsics>
+              <fx>${0.5*width/tan(0.5*hfov)}</fx>
+              <fy>${0.5*width/tan(0.5*hfov)}</fy>
+              <cx>${0.5*width}</cx>
+              <cy>${0.5*height}</cy>
+              <s>0</s>
+            </intrinsics>
+          </lens>
+        </camera>
+        <always_on>1</always_on>
+        <visualize>true</visualize>
+      </sensor>
+    </gazebo>
+
+  </xacro:macro>
+
+</robot>

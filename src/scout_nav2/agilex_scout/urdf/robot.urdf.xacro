@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+
+<robot name="scout_v2" xmlns:xacro="http://ros.org/wiki/xacro">
+
+	<!-- odometry source: world ground truth or wheels encoders -->
+	<xacro:arg name="odometry_source" default="ground_truth" />
+
+	<!-- load gazebo xacro -->
+	<xacro:arg name="load_gazebo" default="true" />
+
+	<xacro:arg name="simulation" default="true" />
+
+	<xacro:include filename="$(find agilex_scout)/urdf/mobile_robot/scout_v2.urdf.xacro" />
+	<xacro:scout_v2 odometry_source="$(arg odometry_source)" load_gazebo="$(arg load_gazebo)" />
+
+	<!-- RGB-D camera (gz sim / Fortress), mounted on front_mount. See urdf/sensors/camera.xacro -->
+	<xacro:include filename="$(find agilex_scout)/urdf/sensors/camera.xacro" />
+	<xacro:camera parent="front_mount" x="0.0" y="0.0" z="0.0" roll="0" pitch="0" yaw="0" />
+
+	<xacro:unless value="$(arg simulation)">
+
+		<!-- addition of OS1 sensor when loading the real Scout -->
+		<xacro:include filename="$(find agilex_scout)/urdf/sensors/os1.urdf" />
+
+		<joint name="os1_joint" type="fixed">
+			<origin xyz="0.2 0.0 0.64" rpy="0.0 0.0 0.0" />
+			<parent link="mobile_robot_base_link" />
+			<child link="os_sensor" />
+		</joint>
+
+	</xacro:unless>
+
+</robot>

@@ -1,0 +1,19 @@
+# ROS 2 / colcon build artifacts
+build/
+install/
+log/
+
+# Editor / tooling
+.claude/
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Model weights (machine-local binaries; download per dev/target machine)
+models/
+
+# OS
+.DS_Store

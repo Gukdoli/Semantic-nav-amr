@@ -1,0 +1,15 @@
+semantic_map_node:
+  ros__parameters:
+    use_sim_time: true
+    # Same-label detections within this distance (m) merge into one object.
+    merge_distance: 0.5
+    # Exponential moving-average weight for merged position updates.
+    ema_alpha: 0.3
+    frame_id: "map"
+    # Min observations before an object is confirmed (returned by find_object +
+    # shown solid green). Filters one-off false positives that come with the low
+    # detector min_confidence (0.25). Unconfirmed objects show as faint grey.
+    min_observations: 3
+    marker_publish_rate: 2.0
+    marker_scale: 0.3
+    text_height: 0.4

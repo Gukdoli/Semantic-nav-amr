@@ -1,0 +1,31 @@
+object_detector_node:
+  ros__parameters:
+    use_sim_time: true
+    # Open-vocabulary classes set on YOLOE at runtime.
+    target_classes:
+      - "fire extinguisher"
+      - "chair"
+    # YOLOE large (YOLO11-based) open-vocabulary weights — better recall on small/
+    # distant objects than the 's' variant (cheap on GPU: ~33ms @ imgsz 1280).
+    # Machine-local binary under the gitignored workspace models/ dir. On the
+    # Jetson Orin NX target this is swapped for a TensorRT FP16 .engine (vocab is
+    # baked in at export time; see SPEC 2.2 deployment note).
+    model_path: "/home/user/nav2_semantic_ws/models/yoloe-11l-seg.pt"
+    # Lowered for sim renders (open-vocab confidence runs low on synthetic meshes).
+    min_confidence: 0.25
+    # ApproximateTimeSynchronizer slop (s) between color (~14Hz) and depth (~5Hz).
+    slop: 0.1
+    # Worker-thread inference throttle (Hz). GPU has headroom; raise to accumulate
+    # detections faster (still well under the per-frame budget at ~33ms).
+    inference_rate_hz: 8.0
+    # Fraction of the bbox (centered) used to sample depth.
+    depth_patch_ratio: 0.2
+    target_frame: "map"
+    # Inference device: "" = auto (cuda:0 if a CUDA torch build sees the GPU,
+    # else cpu). Force with "cuda:0" or "cpu".
+    device: ""
+    # Inference resolution. 1280 greatly improves small/distant-object recall
+    # (e.g. the fire extinguisher) vs the 640 default; ~33ms on GPU.
+    imgsz: 1280
+    # Publish /semantic_nav/debug_image (raw YOLOE boxes drawn) for debugging.
+    publish_debug_image: true

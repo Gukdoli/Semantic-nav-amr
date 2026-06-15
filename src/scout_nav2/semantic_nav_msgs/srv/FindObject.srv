@@ -1,0 +1,8 @@
+# Look up objects in the semantic map by label.
+# Returns every confirmed instance (>= min_observations) of that label, so the
+# caller can disambiguate multiple same-label objects. Empty -> not found.
+# Each match carries its map position, confidence, label, and last_seen
+# (DetectedObject3D.header.stamp). matches are sorted by confidence, descending.
+string label
+---
+DetectedObject3D[] matches
