@@ -21,8 +21,11 @@ object_detector_node:
     # Jetson Orin NX target this is swapped for a TensorRT FP16 .engine (vocab is
     # baked in at export time; see SPEC 2.2 deployment note).
     model_path: "/home/user/nav2_semantic_ws/models/yoloe-11l-seg.pt"
-    # Lowered for sim renders (open-vocab confidence runs low on synthetic meshes).
-    min_confidence: 0.25
+    # Open-vocab confidence runs low on synthetic meshes, but the real target
+    # scores ~0.85 on "red metal cylinder"; raised to 0.45 to reject lower-scoring
+    # look-alikes (other red/cylindrical objects) that were sneaking in as false
+    # positives. Lower toward 0.25 if recall on the target drops.
+    min_confidence: 0.45
     # ApproximateTimeSynchronizer slop (s) between color (~14Hz) and depth (~5Hz).
     slop: 0.1
     # Worker-thread inference throttle (Hz). GPU has headroom; raise to accumulate
