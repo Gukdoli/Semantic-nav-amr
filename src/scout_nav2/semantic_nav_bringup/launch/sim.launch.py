@@ -156,6 +156,9 @@ def launch_setup(context, *args, **kwargs):
         semantic_map_params = os.path.join(
             bringup_dir, "params", "semantic_map.yaml"
         )
+        language_goal_params = os.path.join(
+            bringup_dir, "params", "language_goal.yaml"
+        )
         perception_nodes = [
             Node(
                 package="object_detector",
@@ -169,6 +172,16 @@ def launch_setup(context, *args, **kwargs):
                 executable="semantic_map_node",
                 name="semantic_map_node",
                 parameters=[semantic_map_params, {"use_sim_time": True}],
+                output="screen",
+            ),
+            # M4 command pipeline: parses NavigateToObject commands, queries the
+            # semantic map and drives Nav2. It waits for the Nav2 action server
+            # itself, so launch timing here is forgiving.
+            Node(
+                package="language_goal",
+                executable="goal_commander_node",
+                name="goal_commander_node",
+                parameters=[language_goal_params, {"use_sim_time": True}],
                 output="screen",
             ),
         ]

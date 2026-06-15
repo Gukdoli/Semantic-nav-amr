@@ -1,0 +1,14 @@
+goal_commander_node:
+  ros__parameters:
+    use_sim_time: true
+    approach_distance: 0.7
+    robot_base_frame: "mobile_robot_base_link"
+    target_frame: "map"
+    nav_action_name: "navigate_to_pose"
+    find_object_service: "/semantic_nav/find_object"
+    tf_timeout: 0.5
+    nav_server_wait_sec: 5.0
+    find_object_wait_sec: 5.0
+    # Flat list (M4: single demo class). Per-label synonyms live in the node's
+    # DEFAULT_LABEL_SYNONYMS; a proper synonym param structure is M5.
+    target_labels: ["fire extinguisher"]
